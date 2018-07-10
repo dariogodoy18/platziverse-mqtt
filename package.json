@@ -1,0 +1,26 @@
+{
+  "name": "platziverse_mqtt",
+  "version": "1.0.0",
+  "description": "module server MQTT",
+  "main": "sever.js",
+  "scripts": {
+    "lint": "standard",
+    "start": "NODE_ENV=producction node server.js",
+    "start-dev": "DEBUG=platziverse:* nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "nodemon": "^1.17.5",
+    "standard": "^11.0.1"
+  },
+  "dependencies": {
+    "chalk": "^2.4.1",
+    "debug": "^3.1.0",
+    "mosca": "^2.8.2",  
+    "platzivese_db": "file:../platziverse-db",
+    "redis": "^2.8.0"
+  }
+}
