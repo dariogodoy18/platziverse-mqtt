@@ -30,18 +30,45 @@ server.on('clientConnected', client => {
   clients.set(client.id, null)
 })
 
-server.on('clientDisconnected', client => {
+server.on('clientDisconnected', async client => {
   debug(`Client Disconnected: ${client.id}`)
+  const agent = clients.get(client.id)
+
+  if (agent) {
+    // Mark Agent as Disconneted
+    agent.connected = false
+
+    try {
+      await Agent.createOrUpdate(agent)
+    } catch (e) {
+      return handleError(e)
+    }
+    // Delete Agent from clients list
+    clients.delete(agent.id)
+
+    server.publish({
+      topic: 'agent/disconnected',
+      payload: JSON.stringify({
+        agent: {
+          uuid: agent.uuid
+        }
+      })
+    })
+
+    debug(`Clien ${client.id} associated to Agent (${agent.uuid}) marked as disconnected`)
+  }
 })
 
 server.on('published', async (packet, client) => {
+  debug(`Recived: ${packet.topic}`)
+
   switch (packet.topic) {
     case 'agent/connected':
     case 'agent/disconnected':
       debug(`Payload: ${packet.payload}`)
       break
     case 'agent/message':
-      debug(`Recived: ${packet.topic}`)
+      debug(`Payload: ${packet.payload}`)
 
       const payload = parcePayload(packet.payload)
 
@@ -53,7 +80,7 @@ server.on('published', async (packet, client) => {
         try {
           agent = await Agent.createOrUpdate(payload.agent)
         } catch (e) {
-          return handleError()
+          return handleError(e)
         }
 
         debug(`Agent ${agent.uuid} saved`)
@@ -67,6 +94,7 @@ server.on('published', async (packet, client) => {
               agent: {
                 uuid: agent.uuid,
                 name: agent.name,
+                username: agent.username,
                 hostname: agent.hostname,
                 pid: agent.pid,
                 connected: agent.connected
@@ -74,8 +102,19 @@ server.on('published', async (packet, client) => {
             })
           })
         }
-      }
 
+        // Store Metrics
+        for (let metric of payload.metrics) {
+          let m
+
+          try {
+            m = await Metric.create(agent.uuid, metric)
+          } catch (e) {
+            return handleError(e)
+          }
+          debug(`Metric ${m.id} saved on agent ${agent.id}`)
+        }
+      }
       break
   }
 })
@@ -86,7 +125,7 @@ server.on('ready', async () => {
   Agent = service.Agent
   Metric = service.Metric
 
-  console.log(`${chalk.green('[plaziverse-mqtt] server is running')}`)
+  console.log(`${chalk.green('[plaziverse-mqtt]')} server is running`)
 })
 
 server.on('error', handleFatalError)
@@ -98,7 +137,7 @@ function handleFatalError (err) {
 }
 
 function handleError (err) {
-  console.error(`${chalk.red('[FATAL ERROR]')} ${err.message}`)
+  console.error(`${chalk.red('[ERROR]')} ${err.message}`)
   console.log(err.stack)
 }
 
